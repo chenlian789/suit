@@ -1,0 +1,11 @@
+# config git ignore file
+
+*.class
+
+*.iml
+
+.idea/
+
+.settings/
+
+target/
