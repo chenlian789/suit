@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:p="http://www.springframework.org/schema/p"
+    xmlns:mvc="http://www.springframework.org/schema/mvc"
+    xmlns:context="http://www.springframework.org/schema/context"
+    xmlns:util="http://www.springframework.org/schema/util"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+    http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.0.xsd
+    http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.0.xsd
+    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd">
+    <!-- 这种数据源不提供连接池的功能，每个sql操作都会重新连接数据库，执行sql，然后关闭
+    <bean id="dataSource" class="org.springframework.jdbc.datasource.DriverManagerDataSource">
+      <property name="driverClassName" value="com.mysql.jdbc.Driver"></property>
+      <property name="url" value="jdbc:mysql://localhost:3306/chenlian"></property>
+      <property name="username" value="root"></property>
+      <property name="password" value="root"></property>
+	</bean>
+	-->
+	
+	<bean id="dataSourceMaster" destroy-method="close" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/chenlian"/>
+        <property name="username" value="root"/>
+        <property name="password" value="root"/>
+        <!-- 池启动时创建的连接数量 -->
+        <property name="initialSize" value="5"/>
+        <!-- 同一时间可以从池分配的最多连接数量。设置为0时表示无限制。 -->
+        <property name="maxActive" value="30"/>
+        <!-- 池里不会被释放的最多空闲连接数量。设置为0时表示无限制。 -->
+        <property name="maxIdle" value="20"/>
+        <!-- 在不新建连接的条件下，池中保持空闲的最少连接数。 -->
+        <property name="minIdle" value="3"/>
+        <!-- 设置自动回收超时连接 -->  
+        <property name="removeAbandoned" value="true" />
+        <!-- 自动回收超时时间(以秒数为单位) -->  
+        <property name="removeAbandonedTimeout" value="200"/>
+        <!-- 设置在自动回收超时连接的时候打印连接的超时错误  --> 
+        <property name="logAbandoned" value="true"/>
+        <!-- 等待超时以毫秒为单位，在抛出异常之前，池等待连接被回收的最长时间（当没有可用连接时）。设置为-1表示无限等待。  -->  
+        <property name="maxWait" value="100"/>  
+        <!-- 最大空闲时间，以秒为单位。 mysql 8小时 connection 过期失效，数据库连接池中的connection的有效期要小于八小时，否则取得是无效connection -->
+        <property name="testOnBorrow" value="true"/>  
+        <property name="validationQuery" value="select 1"/>
+    </bean>
+
+    <bean id="dataSourceSlave" destroy-method="close" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/chenlian_slave"/>
+        <property name="username" value="root"/>
+        <property name="password" value="root"/>
+        <!-- 池启动时创建的连接数量 -->
+        <property name="initialSize" value="5"/>
+        <!-- 同一时间可以从池分配的最多连接数量。设置为0时表示无限制。 -->
+        <property name="maxActive" value="30"/>
+        <!-- 池里不会被释放的最多空闲连接数量。设置为0时表示无限制。 -->
+        <property name="maxIdle" value="20"/>
+        <!-- 在不新建连接的条件下，池中保持空闲的最少连接数。 -->
+        <property name="minIdle" value="3"/>
+        <!-- 设置自动回收超时连接 -->
+        <property name="removeAbandoned" value="true" />
+        <!-- 自动回收超时时间(以秒数为单位) -->
+        <property name="removeAbandonedTimeout" value="200"/>
+        <!-- 设置在自动回收超时连接的时候打印连接的超时错误  -->
+        <property name="logAbandoned" value="true"/>
+        <!-- 等待超时以毫秒为单位，在抛出异常之前，池等待连接被回收的最长时间（当没有可用连接时）。设置为-1表示无限等待。  -->
+        <property name="maxWait" value="100"/>
+        <!-- 最大空闲时间，以秒为单位。 mysql 8小时 connection 过期失效，数据库连接池中的connection的有效期要小于八小时，否则取得是无效connection -->
+        <property name="testOnBorrow" value="true"/>
+        <property name="validationQuery" value="select 1"/>
+    </bean>
+      
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+	        <property name="dataSource" ref="dataSourceMaster" />
+	</bean>
+	<bean id="sqlSessionFactoryMaster" class="org.mybatis.spring.SqlSessionFactoryBean">
+	        <property name="dataSource" ref="dataSourceMaster" />
+	</bean>
+    <bean id="sqlSessionFactorySlave" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSourceSlave" />
+    </bean>
+
+    <bean id="sqlSlaveDataSessionMaster" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg index="0" ref="sqlSessionFactoryMaster" />
+    </bean>
+
+    <bean id="sqlSlaveDataSessionSlave" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg index="0" ref="sqlSessionFactorySlave" />
+    </bean>
+
+	<bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+	        <property name="basePackage" value="com.dao.mapper" />
+            <property name="sqlSessionTemplateBeanName" value="sqlSlaveDataSessionMaster" />
+	</bean>
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.dao.readmapper" />
+        <property name="sqlSessionTemplateBeanName" value="sqlSlaveDataSessionSlave" />
+    </bean>
+</beans>
